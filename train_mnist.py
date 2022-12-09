@@ -47,6 +47,7 @@ def parse_args():
     parser.add_argument('--model_ema_decay',type = float,help = 'ema model decay',default=0.995)
     parser.add_argument('--log_freq',type = int,help = 'training log message printing frequence',default=10)
     parser.add_argument('--no_clip',action='store_true',help = 'set to normal sampling method without clip x_0 which could yield unstable samples')
+    parser.add_argument('--cpu',action='store_true',help = 'cpu training')
 
     args = parser.parse_args()
 
@@ -54,19 +55,20 @@ def parse_args():
 
 
 def main(args):
+    device="cpu" if args.cpu else "cuda"
     train_dataloader,test_dataloader=create_mnist_dataloaders(batch_size=args.batch_size,image_size=28)
     model=MNISTDiffusion(timesteps=args.timesteps,
                 image_size=28,
                 in_channels=1,
                 base_dim=args.model_base_dim,
-                dim_mults=[2,4]).cuda()
+                dim_mults=[2,4]).to(device)
 
     #torchvision ema setting
     #https://github.com/pytorch/vision/blob/main/references/classification/train.py#L317
     adjust = 1* args.batch_size * args.model_ema_steps / args.epochs
     alpha = 1.0 - args.model_ema_decay
     alpha = min(1.0, alpha * adjust)
-    model_ema = ExponentialMovingAverage(model, device="cuda", decay=1.0 - alpha)
+    model_ema = ExponentialMovingAverage(model, device=device, decay=1.0 - alpha)
 
     optimizer=AdamW(model.parameters(),lr=args.lr)
     scheduler=OneCycleLR(optimizer,args.lr,total_steps=args.epochs*len(train_dataloader),pct_start=0.25,anneal_strategy='cos')
@@ -82,8 +84,8 @@ def main(args):
     for i in range(args.epochs):
         model.train()
         for j,(image,target) in enumerate(train_dataloader):
-            noise=torch.randn_like(image).cuda()
-            image=image.cuda()
+            noise=torch.randn_like(image).to(device)
+            image=image.to(device)
             pred=model(image,noise)
             loss=loss_fn(pred,noise)
             loss.backward()
@@ -103,7 +105,7 @@ def main(args):
         torch.save(ckpt,"results/steps_{:0>8}.pt".format(global_steps))
 
         model_ema.eval()
-        samples=model_ema.module.sampling(args.n_samples,clipped_reverse_diffusion=not args.no_clip,device="cuda")
+        samples=model_ema.module.sampling(args.n_samples,clipped_reverse_diffusion=not args.no_clip,device=device)
         save_image(samples,"results/steps_{:0>8}.png".format(global_steps),nrow=int(math.sqrt(args.n_samples)))
 
 if __name__=="__main__":
