@@ -2,6 +2,7 @@ import torch.nn as nn
 import torch
 import math
 from unet import Unet
+from tqdm import tqdm
 
 class MNISTDiffusion(nn.Module):
     def __init__(self,image_size,in_channels,time_embedding_dim=256,timesteps=1000,base_dim=32,dim_mults= [1, 2, 4, 8]):
@@ -34,7 +35,7 @@ class MNISTDiffusion(nn.Module):
     @torch.no_grad()
     def sampling(self,n_samples,clipped_reverse_diffusion=True,device="cuda"):
         x_t=torch.randn((n_samples,self.in_channels,self.image_size,self.image_size)).to(device)
-        for i in range(self.timesteps-1,-1,-1):
+        for i in tqdm(range(self.timesteps-1,-1,-1),desc="Sampling"):
             noise=torch.randn_like(x_t).to(device)
             t=torch.tensor([i for _ in range(n_samples)]).to(device)
 

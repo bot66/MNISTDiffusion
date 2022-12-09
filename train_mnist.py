@@ -103,7 +103,7 @@ def main(args):
         torch.save(ckpt,"results/steps_{:0>8}.pt".format(global_steps))
 
         model_ema.eval()
-        samples=model_ema.module.sampling(args.n_samples,clipped_reverse_diffusion=True,device="cuda")
+        samples=model_ema.module.sampling(args.n_samples,clipped_reverse_diffusion=not args.no_clip,device="cuda")
         save_image(samples,"results/steps_{:0>8}.png".format(global_steps),nrow=int(math.sqrt(args.n_samples)))
 
 if __name__=="__main__":
